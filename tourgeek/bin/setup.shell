@@ -1,0 +1,87 @@
+e
+
+export KARAF_DEBUG=true
+export DEFAULT_JAVA_DEBUG_OPTS='-Xdebug -Xnoagent -Djava.compiler=NONE -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005'
+karaf clean
+
+docker build -t docker-tourgeek .
+docker run --rm -p 8181:8181 -p 5005:5005 --name tourgeek -d docker-tourgeek sleep 36000
+docker exec -it tourgeek bash
+docker exec tourgeek tail -f /opt/apache/karaf/data/log/karaf.log
+
+
+# Web Server, OBR index, war support
+echo Starting up the jbundle framework. Please wait... this may take a few moments
+feature:install http obr war
+sleep 4000
+# Load the OBR index
+
+# obr:url-add mvn:org.jbundle.config/jbundle-artifacts/1.4.0/xml/repository
+
+obr:url-add file:/home/karaf/.m2/repository/repository.xml
+obr:url-add http://www.jibx.org/repository/repository.xml
+obr:url-add file:/home/karaf/workspace/artifacts/artifacts/target/classes/obr/repository/jbundle-external-repository-1.0.2.xml
+
+obr:deploy org.jbundle.base.db.jdbc
+
+obr:url-add file:///home/local/jbundle-util-auto-webstart-repository-1.6.10-SNAPSHOT.xml
+obr:url-add file:///home/local/jbundle-util-biorhythm-repository-0.8.7-SNAPSHOT.xml
+obr:url-add file:///home/local/jbundle-util-jcalendarbutton-repository-1.6.5-SNAPSHOT.xml
+obr:url-add file:///home/local/jbundle-util-osgi-repository-2.0.10-SNAPSHOT.xml
+obr:url-add file:///home/local/jbundle-util-webapp-repository-1.3.7-SNAPSHOT.xml
+
+obr:url-add file:///home/bin/oldlocal/jbundle-util-auto-webstart-repository-1.6.9.xml
+obr:url-add file:///home/bin/oldlocal/jbundle-util-biorhythm-repository-0.8.6.xml
+obr:url-add file:///home/bin/oldlocal/jbundle-util-jcalendarbutton-repository-1.6.4.xml
+obr:url-add file:///home/bin/oldlocal/jbundle-util-osgi-repository-2.0.9.xml
+obr:url-add file:///home/bin/oldlocal/jbundle-util-webapp-repository-1.3.6.xml
+obr:url-add file:///home/bin/oldlocal/jbundle-util-repository-2.0.7.xml
+
+obr:url-add file:///home/old/jbundle-util-auto-webstart-repository-1.6.9.xml
+obr:url-add file:///home/old/jbundle-util-biorhythm-repository-0.8.6.xml
+obr:url-add file:///home/old/jbundle-util-jcalendarbutton-repository-1.6.4.xml
+obr:url-add file:///home/old/jbundle-util-osgi-repository-2.0.9.xml
+obr:url-add file:///home/old/jbundle-util-webapp-repository-1.3.6.xml
+obr:url-add file:///home/old/jbundle-util-repository-2.0.7.xml
+
+# Start the OBR resource retrieval utility
+obr:start -d 'jbundle-util-osgi-obr - obr bundle retrieval'
+sleep 1000
+# Start the OSGi to WebStart servlet
+obr:start -d 'jbundle-util-osgi-webstart - osgi to web start web bundle'
+sleep 1000
+# --------TEMPORARY -------- install the saaj module to get soap messaging
+# obr:deploy -s org.apache.servicemix.bundles.saaj-impl
+# Start the jbundle web services app
+obr:deploy -d 'jbundle-base-remote - Remote server'
+sleep 4000
+start 'jbundle-base-remote - Remote server'
+sleep 4000
+# Start the web sites
+obr:deploy -d 'jbundle-config-web-httpweb - Hybrid osgi webapp'
+sleep 4000
+start 'jbundle-config-web-httpweb - Hybrid osgi webapp'
+sleep 1000
+
+tail -f /opt/apache/karaf/data/log/karaf.log
+
+http://localhost:8181/webstart/bio.jnlp?mainClass=org.jbundle.util.biorhythm.Biorhythm
+
+
+file:///root/.m2/repository/
+
+cd /home/workspace/jbundle/util/biorhythm
+mvn versions:set -DnewVersion=0.8.6
+mvn clean install
+
+cd /home/workspace/jbundle/util/jcalendarbutton/
+mvn versions:set -DnewVersion=1.6.4
+mvn clean install
+
+cd /home/workspace/jbundle/util/util/
+mvn versions:set -DnewVersion=2.0.7
+mvn clean install
+
+~/workspace/workspace/app/tourgeek/config/main$ mvn -P import exec:java
+
+
